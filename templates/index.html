@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Job Search</title>
+<style>
+body{font-family:system-ui;max-width:1100px;margin:30px auto;padding:0 16px;background:#f6f7f9;color:#222}
+form{background:#fff;padding:16px;border-radius:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;box-shadow:0 1px 3px #0002}
+label{font-size:12px;color:#555;display:flex;flex-direction:column;gap:3px}
+input,select{padding:7px;border:1px solid #ccc;border-radius:5px}
+.sites{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px}.sites label{flex-direction:row;align-items:center;font-size:14px;color:#222}
+button{padding:9px;background:#2563eb;color:#fff;border:0;border-radius:5px;cursor:pointer;font-size:15px}
+table{width:100%;border-collapse:collapse;background:#fff;margin-top:16px;font-size:14px}
+th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;vertical-align:top}th{background:#eef}
+#status{margin-top:12px}a{color:#2563eb}
+</style></head><body>
+<h2>Job Search</h2>
+<form id="f">
+<div class="sites">{% for s in sites %}<label><input type="checkbox" name="site" value="{{s}}" {{'checked' if s in ['linkedin','indeed','naukri']}}> {{s}}</label>{% endfor %}</div>
+<label>Search term<input id="term" required placeholder="python developer"></label>
+<label>Location<input id="loc" placeholder="Bangalore"></label>
+<label>Country (Indeed/Glassdoor)<input id="country" value="india"></label>
+<label>Results per site<input id="n" type="number" value="15" min="1" max="1000"></label>
+<label>Posted within (hours)<input id="hrs" type="number" placeholder="72"></label>
+<label>Job type<select id="jt"><option value="">Any</option><option>fulltime</option><option>parttime</option><option>internship</option><option>contract</option></select></label>
+<label style="flex-direction:row;align-items:center"><input type="checkbox" id="remote"> Remote only</label>
+<label style="grid-column:1/-1">Proxies (optional, one per line: user:pass@host:port or socks5://host:port; type <code>localhost</code> to include your own IP)<textarea id="px" rows="3" style="padding:7px;border:1px solid #ccc;border-radius:5px"></textarea></label>
+<button>Search</button>
+</form>
+<div id="status"></div><div id="out"></div>
+<script>
+const $=id=>document.getElementById(id);
+$('f').onsubmit=async e=>{e.preventDefault();
+ const sites=[...document.querySelectorAll('[name=site]:checked')].map(x=>x.value);
+ $('status').textContent='Searching '+sites.join(', ')+'… this can take a minute.';$('out').innerHTML='';
+ const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sites,search_term:$('term').value,location:$('loc').value,country:$('country').value,results_wanted:$('n').value,hours_old:$('hrs').value,job_type:$('jt').value,is_remote:$('remote').checked,proxies:$('px').value})});
+ const d=await r.json();if(d.error){$('status').textContent='Error: '+d.error;return}
+ $('status').textContent=d.jobs.length+' jobs found';
+ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+ $('out').innerHTML='<table><tr><th>Site</th><th>Title</th><th>Company</th><th>Location</th><th>Salary</th><th>Posted</th></tr>'+d.jobs.map(j=>`<tr><td>${esc(j.site)}</td><td><a href="${esc(j.job_url)}" target="_blank">${esc(j.title)}</a></td><td>${esc(j.company)}</td><td>${esc(j.location)}</td><td>${j.min_amount?esc(j.min_amount)+'–'+esc(j.max_amount)+' '+esc(j.currency||'')+' '+esc(j.interval||''):''}</td><td>${esc(j.date_posted)}</td></tr>`).join('')+'</table>'};
+</script></body></html>
